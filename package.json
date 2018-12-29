@@ -15,5 +15,9 @@
   "bugs": {
     "url": "https://github.com/ZimGil/NHL-offensive-faceoff-success/issues"
   },
-  "homepage": "https://github.com/ZimGil/NHL-offensive-faceoff-success#readme"
+  "homepage": "https://github.com/ZimGil/NHL-offensive-faceoff-success#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "eslint": "^5.11.1"
+  }
 }
