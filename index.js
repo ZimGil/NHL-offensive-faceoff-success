@@ -52,45 +52,25 @@ request(`http://live.nhl.com/GameData/SeasonSchedule-${season}.json`,
   });
 
 function analyseGamesData(gamesData) {
-  let offensiveAdvantage = 0;
-  gamesData.forEach(gameData => offensiveAdvantage += analyseGame(gameData));
+  let totalOffensiveWins = 0;
+  let totalFaceoffs = 0;
+  gamesData.forEach(gameData => {
+    const homeTeamTriCode = gameData.gameData.teams.home.triCode;
+    const isHomeTeamStartsOnLeft = gameData.liveData.linescore.periods[0].home.rinkSide === 'left';
+    const faceoffs = getFaceoffs(gameData.liveData.plays.allPlays);
 
-  console.log(offensiveAdvantage);
-}
-
-function analyseGame(gameData) {
-  const homeTeamTriCode = gameData.gameData.teams.home.triCode;
-  const isHomeTeamStartsOnLeft = gameData.liveData.linescore.periods[0].home.rinkSide === 'left';
-
-  let offensiveAdvantage = 0;
-  const plays = gameData.liveData.plays.allPlays;
-  const faceoffs = getFaceoffs(plays);
-
-  faceoffs.forEach(faceoff => {
-    offensiveAdvantage += isOffensiveWon(faceoff, homeTeamTriCode, isHomeTeamStartsOnLeft);
+    totalOffensiveWins += analyseGame(faceoffs, homeTeamTriCode, isHomeTeamStartsOnLeft);
+    totalFaceoffs += faceoffs.length;
   });
 
-  return offensiveAdvantage / faceoffs.length;
+  console.log(totalOffensiveWins / totalFaceoffs);
 }
 
-function isOffensiveWon(faceoff, homeTeamTriCode, isHomeTeamStartsOnLeft) {
-  if (faceoff.about.period % 2 !== 0) {
-    if (faceoff.coordinates.x === 0) {
-      return faceoff.team.triCode === homeTeamTriCode;
-    } else if (faceoff.coordinates.x < 0) {
-      return (faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft;
-    } else if (faceoff.coordinates.x > 0) {
-      return !((faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft);
-    }
-  } else {
-    if (faceoff.coordinates.x === 0) {
-      return faceoff.team.triCode === homeTeamTriCode;
-    } else if (faceoff.coordinates.x < 0) {
-      return !((faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft);
-    } else if (faceoff.coordinates.x > 0) {
-      return (faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft;
-    }
-  }
+function analyseGame(faceoffs, homeTeamTriCode, isHomeTeamStartsOnLeft) {
+  let offensiveWins = 0;
+  faceoffs.forEach(faceoff => offensiveWins += isOffensiveWon(faceoff, homeTeamTriCode, isHomeTeamStartsOnLeft));
+
+  return offensiveWins;
 }
 
 function getFaceoffs(allPlays) {
@@ -103,4 +83,33 @@ function getFaceoffs(allPlays) {
   });
 
   return faceoffs;
+}
+
+function isOffensiveWon(faceoff, homeTeamTriCode, isHomeTeamStartsOnLeft) {
+
+  // Center ice faceoff
+  if (faceoff.coordinates.x === 0) {
+    return faceoff.team.triCode === homeTeamTriCode;
+  }
+
+  // First and Third Periods and Second and every other OT period
+  if (faceoff.about.period % 2 !== 0) {
+    if (faceoff.coordinates.x < 0) {
+      // Home team win XOR Home team started on left side
+      return (faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft;
+    } else if (faceoff.coordinates.x > 0) {
+      // Away team win XOR Home team started on left side
+      return !((faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft);
+    }
+
+  // Second Period and First and every other OT Period
+  } else {
+    if (faceoff.coordinates.x < 0) {
+      // Away team win XOR Home team started on left side
+      return !((faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft);
+    } else if (faceoff.coordinates.x > 0) {
+      // Home team win XOR Home team started on left side
+      return (faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft;
+    }
+  }
 }
