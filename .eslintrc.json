@@ -28,7 +28,7 @@
     "linebreak-style": 0,
     "max-len": [
       2,
-      80
+      120
     ],
     "indent": [
       2,

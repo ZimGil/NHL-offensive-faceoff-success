@@ -1,10 +1,9 @@
 const request = require('request');
 const colors = require('colors/safe');
-const jsonfile = require('jsonfile');
 const async = require('async');
 
 const season = process.argv[2];
-const allSeasonInfo = [];
+const allSeasonData = [];
 
 request(`http://live.nhl.com/GameData/SeasonSchedule-${season}.json`,
   (error, response, body) => {
@@ -14,7 +13,6 @@ request(`http://live.nhl.com/GameData/SeasonSchedule-${season}.json`,
     }
 
     const importedJSON = JSON.parse(body);
-    jsonfile.writeFileSync(`data/schedule-${season}.json`, importedJSON);
     console.log(colors.green(`Schedule for ${season} processed successfully`));
 
     const utcDate = new Date().toJSON().slice(0,10).replace(/-/g,'');
@@ -31,28 +29,78 @@ request(`http://live.nhl.com/GameData/SeasonSchedule-${season}.json`,
         if (error) {
           callback(error);
         } else {
-          try {
-            if ((utcDate - 1) < gameDate.substring(0, 8)) {
-              console.log(colors.green('All available games fetched'));
-              return;
-            } else {
-              console.log(colors.green(`Fetching URL: ${URL}`));
-              allSeasonInfo.push(body);
-              callback();
-            }
-          } catch (err) {
-            console.log(colors.red(`Failed to fetch GameID: ${gameId}`));
-            callback(err);
+          if ((utcDate - 1) < gameDate.substring(0, 8)) {
+            console.log(colors.green('All available games fetched'));
+            return;
+          } else {
+            console.log(colors.green(`Fetching URL: ${URL}`));
+            allSeasonData.push(JSON.parse(body));
+            callback();
           }
         }
-      }, err => {
-        if (err) {
-          console.log(colors.red(`Last attempted GameID: ${lastProcessedId}`));
-          console.log('detailed error:', err);
-          return;
-        } else {
-          console.log(colors.green('All available games fetched successfully'));
-        }
       });
+    }, err => {
+      if (err) {
+        console.log(colors.red(`Last attempted GameID: ${lastProcessedId}`));
+        console.log('detailed error:', err);
+        return;
+      } else {
+        console.log(colors.green('All available games fetched successfully'));
+      }
+      analyseGamesData(allSeasonData);
     });
   });
+
+function analyseGamesData(gamesData) {
+  let offensiveAdvantage = 0;
+  gamesData.forEach(gameData => offensiveAdvantage += analyseGame(gameData));
+
+  console.log(offensiveAdvantage);
+}
+
+function analyseGame(gameData) {
+  const homeTeamTriCode = gameData.gameData.teams.home.triCode;
+  const isHomeTeamStartsOnLeft = gameData.liveData.linescore.periods[0].home.rinkSide === 'left';
+
+  let offensiveAdvantage = 0;
+  const plays = gameData.liveData.plays.allPlays;
+  const faceoffs = getFaceoffs(plays);
+
+  faceoffs.forEach(faceoff => {
+    offensiveAdvantage += isOffensiveWon(faceoff, homeTeamTriCode, isHomeTeamStartsOnLeft);
+  });
+
+  return offensiveAdvantage / faceoffs.length;
+}
+
+function isOffensiveWon(faceoff, homeTeamTriCode, isHomeTeamStartsOnLeft) {
+  if (faceoff.about.period % 2 !== 0) {
+    if (faceoff.coordinates.x === 0) {
+      return faceoff.team.triCode === homeTeamTriCode;
+    } else if (faceoff.coordinates.x < 0) {
+      return (faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft;
+    } else if (faceoff.coordinates.x > 0) {
+      return !((faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft);
+    }
+  } else {
+    if (faceoff.coordinates.x === 0) {
+      return faceoff.team.triCode === homeTeamTriCode;
+    } else if (faceoff.coordinates.x < 0) {
+      return !((faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft);
+    } else if (faceoff.coordinates.x > 0) {
+      return (faceoff.team.triCode === homeTeamTriCode) ^ isHomeTeamStartsOnLeft;
+    }
+  }
+}
+
+function getFaceoffs(allPlays) {
+  const faceoffs = [];
+
+  allPlays.forEach(play => {
+    if (play.result.eventTypeId === 'FACEOFF') {
+      faceoffs.push(play);
+    }
+  });
+
+  return faceoffs;
+}
