@@ -31,7 +31,7 @@ request(`http://live.nhl.com/GameData/SeasonSchedule-${season}.json`,
         } else {
           if ((utcDate - 1) < gameDate.substring(0, 8)) {
             console.log(colors.green('All available games fetched'));
-            return;
+            callback(error = 'Future games can not be analyzed');
           } else {
             console.log(colors.green(`Fetching URL: ${URL}`));
             allSeasonData.push(JSON.parse(body));
@@ -43,15 +43,14 @@ request(`http://live.nhl.com/GameData/SeasonSchedule-${season}.json`,
       if (err) {
         console.log(colors.red(`Last attempted GameID: ${lastProcessedId}`));
         console.log('detailed error:', err);
-        return;
       } else {
         console.log(colors.green('All available games fetched successfully'));
       }
-      analyseGamesData(allSeasonData);
+      console.log(colors.cyan('Offensive faceoff win ratio: ',analyseSeasonData(allSeasonData)));
     });
   });
 
-function analyseGamesData(gamesData) {
+function analyseSeasonData(gamesData) {
   let totalOffensiveWins = 0;
   let totalFaceoffs = 0;
   gamesData.forEach(gameData => {
@@ -63,7 +62,7 @@ function analyseGamesData(gamesData) {
     totalFaceoffs += faceoffs.length;
   });
 
-  console.log(totalOffensiveWins / totalFaceoffs);
+  return totalOffensiveWins / totalFaceoffs;
 }
 
 function analyseGame(faceoffs, homeTeamTriCode, isHomeTeamStartsOnLeft) {
