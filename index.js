@@ -12,5 +12,13 @@ if (!season || !season.match(/^\d{8}$/g)) {
 }
 
 fetchSeasonData(season)
-  .then(gamesData => analyseSeasonData(gamesData))
-  .then(offensiveFaceoffWinRatio => console.log(offensiveFaceoffWinRatio));
+  .then(gamesData => {
+    console.log(colors.cyan(`Done fetching data for season ${season}\nAnalyzing...`));
+    return analyseSeasonData(gamesData);
+  })
+  .then(offensiveFaceoffWinRatio => {
+    console.log([
+      colors.green(`Offensive Faceoff Win Ratio for the ${season} season:`),
+      colors.cyan(offensiveFaceoffWinRatio)
+    ].join(' '));
+  });
