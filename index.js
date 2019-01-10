@@ -12,7 +12,7 @@ if (!season || !season.match(/^\d{8}$/g)) {
   fetchSeasonData(season)
     .then(gamesData => {
       console.log(colors.cyan(`Done fetching data for season ${season}\nAnalyzing...`));
-      return analyseSeasonData(gamesData);
+      return analyseSeasonData(gamesData, season);
     })
     .then(offensiveFaceoffWinRatio => {
       console.log([
